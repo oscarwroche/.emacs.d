@@ -39,7 +39,8 @@
                            ("~/Dropbox/org/tickler.org" :maxlevel . 2)))
 (setq org-refile-use-outline-path 'file)
 (setq org-todo-keyword-faces
-      '(("TODO" . org-warning) ("NEXT" . "yellow") ("CANCELLED" . (:foreground "blue" :weight bold)) ("DONE" . "green")))
+      '(("TODO" . org-warning) ("NEXT" . "blue") ("DOING" . "orange") ("CANCELLED" . (:foreground "purple" :weight bold)) ("DONE" . "green")))
+(add-to-list 'org-modules 'org-habit)
 
 ;; Packages
 
@@ -51,7 +52,7 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(docker-compose-mode dockerfile-mode terraform-mode web-mode web company tide typescript-mode magit json-mode nix-mode haskell-mode shell-pop geiser exec-path-from-shell lsp-mode ##)))
+   '(solarized-theme xref-js2 js2-refactor js2-mode company-solidity solidity-mode docker-compose-mode dockerfile-mode terraform-mode web-mode web company tide typescript-mode magit json-mode nix-mode haskell-mode shell-pop geiser exec-path-from-shell lsp-mode ##)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -141,7 +142,11 @@
   ;; company is an optional dependency. You have to
   ;; install it separately via package-install
   ;; `M-x package-install [ret] company`
-  (company-mode +1))
+  (setq tide-completion-enable-autoimport-suggestions t)
+  (company-mode +1)
+  )
+
+;; Web mode
 
 (require 'web-mode)
 (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
@@ -149,7 +154,7 @@
           (lambda ()
             (when (string-equal "tsx" (file-name-extension buffer-file-name))
               (setup-tide-mode))))
-
+(setq web-mode-enable-auto-quoting nil)
 (add-hook 'before-save-hook 'tide-format-before-save)
 (add-hook 'typescript-mode-hook #'setup-tide-mode)
 ;;(flycheck-add-mode 'typescript-tslint 'web-mode)
@@ -158,12 +163,12 @@
 
 ;; Themes, fonts etc ...
 
-(load-theme 'deeper-blue)
+(load-theme 'solarized-light t)
 
 ;; Set default font
 (set-face-attribute 'default nil
                     :family "Source Code Pro"
-                    :height 125
+                    :height 165
                     :weight 'normal
                     :width 'normal)
 
@@ -182,10 +187,44 @@
 ;; Case-sensitive autocomplete
 
 (setq ac-ignore-case nil)
+(setq dabbrev-case-fold-search nil)
 
 ;; Show line numbers
 
 (global-display-line-numbers-mode)
+
+;; Solidity
+
+(require 'solidity-mode)
+(require 'company-solidity)
+
+;; JS
+
+(require 'js2-mode)
+(add-to-list 'auto-mode-alist '("\\.js\\'" . js2-mode))
+(add-hook 'js2-mode-hook #'js2-imenu-extras-mode)
+(add-hook 'js2-mode-hook #'js2-refactor-mode)
+(js2r-add-keybindings-with-prefix "C-c C-r")
+(define-key js2-mode-map (kbd "C-k") #'js2r-kill)
+
+;; js-mode (which js2 is based on) binds "M-." which conflicts with xref, so
+;; unbind it.
+(define-key js-mode-map (kbd "M-.") nil)
+
+(add-hook 'js2-mode-hook (lambda ()
+			   (add-hook 'xref-backend-functions #'xref-js2-xref-backend nil t)))
+
+;; Remove directories from grep
+
+(eval-after-load 'grep
+  '(progn
+     (add-to-list 'grep-find-ignored-directories "tmp")
+     (add-to-list 'grep-find-ignored-directories "node_modules")
+     (add-to-list 'grep-find-ignored-directories ".bundle")
+     (add-to-list 'grep-find-ignored-directories "auto")
+     (add-to-list 'grep-find-ignored-directories "elpa")
+     (add-to-list 'grep-find-ignored-files "*.tsbuildinfo"))
+)
 
 ;; Open gtd on launch
 
