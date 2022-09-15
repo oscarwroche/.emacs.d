@@ -52,7 +52,7 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(solarized-theme xref-js2 js2-refactor js2-mode company-solidity solidity-mode docker-compose-mode dockerfile-mode terraform-mode web-mode web company tide typescript-mode magit json-mode nix-mode haskell-mode shell-pop geiser exec-path-from-shell lsp-mode ##)))
+   '(dap-mode helm-xref prettier-js solarized-theme xref-js2 js2-refactor js2-mode company-solidity solidity-mode docker-compose-mode dockerfile-mode terraform-mode web-mode web company tide typescript-mode magit json-mode nix-mode haskell-mode shell-pop geiser exec-path-from-shell lsp-mode ##)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -129,41 +129,19 @@
 
 (define-key global-map "\M-s" 'new-shell)
 
-;; Typescript
-
-(defun setup-tide-mode ()
-  (interactive)
-  (tide-setup)
-  (flycheck-mode +1)
-  (setq flycheck-check-syntax-automatically '(save mode-enabled))
-  (eldoc-mode +1)
-  (tide-hl-identifier-mode +1)
-  (setq tide-format-options '(:tabSize 4 :indentSize 4))
-  ;; company is an optional dependency. You have to
-  ;; install it separately via package-install
-  ;; `M-x package-install [ret] company`
-  (setq tide-completion-enable-autoimport-suggestions t)
-  (company-mode +1)
-  )
-
 ;; Web mode
 
 (require 'web-mode)
+(add-to-list 'auto-mode-alist '("\\.js\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
-(add-hook 'web-mode-hook
-          (lambda ()
-            (when (string-equal "tsx" (file-name-extension buffer-file-name))
-              (setup-tide-mode))))
-(setq web-mode-enable-auto-quoting nil)
-(add-hook 'before-save-hook 'tide-format-before-save)
-(add-hook 'typescript-mode-hook #'setup-tide-mode)
-;;(flycheck-add-mode 'typescript-tslint 'web-mode)
-
-;;(add-hook 'tide-mode-hook 'display-line-numbers-mode)
 
 ;; Themes, fonts etc ...
 
 (load-theme 'solarized-light t)
+(load-theme 'solarized-dark t)
+(run-at-time "20:00" (* 60 60 24) (lambda () (enable-theme 'solarized-dark)))
+(run-at-time "08:00" (* 60 60 24) (lambda () (enable-theme 'solarized-light)))
 
 ;; Set default font
 (set-face-attribute 'default nil
@@ -198,21 +176,18 @@
 (require 'solidity-mode)
 (require 'company-solidity)
 
-;; JS
+;;(add-hook 'web-mode-hook 'prettier-js-mode)
 
-(require 'js2-mode)
-(add-to-list 'auto-mode-alist '("\\.js\\'" . js2-mode))
-(add-hook 'js2-mode-hook #'js2-imenu-extras-mode)
-(add-hook 'js2-mode-hook #'js2-refactor-mode)
-(js2r-add-keybindings-with-prefix "C-c C-r")
-(define-key js2-mode-map (kbd "C-k") #'js2r-kill)
+(defun enable-minor-mode (my-pair)
+  "Enable minor mode if filename match the regexp.  MY-PAIR is a cons cell (regexp . minor-mode)."
+  (if (buffer-file-name)
+      (if (string-match (car my-pair) buffer-file-name)
+	  (funcall (cdr my-pair)))))
 
-;; js-mode (which js2 is based on) binds "M-." which conflicts with xref, so
-;; unbind it.
-(define-key js-mode-map (kbd "M-.") nil)
+(add-hook 'web-mode-hook #'(lambda ()
+                            (enable-minor-mode
+                             '("\\.jsx?\\'" . prettier-js-mode))))
 
-(add-hook 'js2-mode-hook (lambda ()
-			   (add-hook 'xref-backend-functions #'xref-js2-xref-backend nil t)))
 
 ;; Remove directories from grep
 
@@ -224,7 +199,24 @@
      (add-to-list 'grep-find-ignored-directories "auto")
      (add-to-list 'grep-find-ignored-directories "elpa")
      (add-to-list 'grep-find-ignored-files "*.tsbuildinfo"))
-)
+  )
+
+;; Magit
+
+(setq magit-save-repository-buffers nil)
+
+;; LSP
+
+(setq gc-cons-threshold 100000000)
+(setq read-process-output-max (* 1024 1024)) ;; 1mb
+(setq company-minimum-prefix-length 1
+      company-idle-delay 0.0) ;; default is 0.2
+(setq lsp-diagnostics-provider :none)
+(add-hook 'web-mode-hook #'lsp)
+(with-eval-after-load 'lsp-mode
+  (require 'dap-chrome)
+  (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
+  (yas-global-mode))
 
 ;; Open gtd on launch
 
