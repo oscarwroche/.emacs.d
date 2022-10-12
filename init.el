@@ -134,6 +134,7 @@
 (require 'web-mode)
 (add-to-list 'auto-mode-alist '("\\.js\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.ts\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
 
 ;; Themes, fonts etc ...
@@ -188,6 +189,9 @@
                             (enable-minor-mode
                              '("\\.jsx?\\'" . prettier-js-mode))))
 
+(add-hook 'web-mode-hook #'(lambda ()
+                            (enable-minor-mode
+                             '("\\.tsx?\\'" . prettier-js-mode))))
 
 ;; Remove directories from grep
 
@@ -211,12 +215,13 @@
 (setq read-process-output-max (* 1024 1024)) ;; 1mb
 (setq company-minimum-prefix-length 1
       company-idle-delay 0.0) ;; default is 0.2
-(setq lsp-diagnostics-provider :none)
+;;(setq lsp-diagnostics-provider :none)
 (add-hook 'web-mode-hook #'lsp)
 (with-eval-after-load 'lsp-mode
   (require 'dap-chrome)
   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
   (yas-global-mode))
+;;(lsp-treemacs-sync-mode 1)
 
 ;; Open gtd on launch
 
