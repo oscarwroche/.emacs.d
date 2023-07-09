@@ -26,6 +26,7 @@
 (setq org-agenda-log-mode-items '(closed clock state))
 (global-set-key (kbd "C-c c") 'org-capture)
 (add-hook 'org-mode-hook 'turn-on-flyspell)
+
 (add-hook 'auto-save-hook 'org-save-all-org-buffers)
 (setq org-log-note-clock-out t)
 (setq org-capture-templates '(("t" "Todo [inbox]" entry
@@ -51,14 +52,23 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(lsp-treemacs-error-list-current-project-only t)
  '(package-selected-packages
-   '(dap-mode helm-xref prettier-js solarized-theme xref-js2 js2-refactor js2-mode company-solidity solidity-mode docker-compose-mode dockerfile-mode terraform-mode web-mode web company tide typescript-mode magit json-mode nix-mode haskell-mode shell-pop geiser exec-path-from-shell lsp-mode ##)))
+   '(graphql-mode eglot sqlformat lsp-tailwindcss rustic lsp-ui treemacs-tab-bar which-key dap-mode helm-xref prettier-js solarized-theme xref-js2 js2-refactor js2-mode company-solidity solidity-mode docker-compose-mode dockerfile-mode terraform-mode web-mode web company tide typescript-mode magit json-mode nix-mode haskell-mode shell-pop geiser exec-path-from-shell lsp-mode))
+ '(treemacs-no-delete-other-windows nil)
+ '(warning-suppress-types
+   '(((defvaralias losing-value rustic-indent-offset))
+     (lsp-mode))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
+ '(default ((t (:inherit nil :extend nil :stipple nil :background "#181a26" :foreground "gray80" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 130 :width normal :foundry "nil" :family "Source Code Pro")))))
+
+(when (cl-find-if-not #'package-installed-p package-selected-packages)
+  (package-refresh-contents)
+  (mapc #'package-install package-selected-packages))
 
 ;; Special character shortcuts
 
@@ -84,7 +94,7 @@
 (global-set-key (kbd "M-S") 'backslash)
 
 (cd "/users/oscarroche/")
-(setq ispell-program-name "/usr/local/bin/aspell")
+(setq ispell-program-name "/opt/homebrew/bin/aspell")
 
 (require 'cc-mode)
 
@@ -133,21 +143,24 @@
 
 (require 'web-mode)
 (add-to-list 'auto-mode-alist '("\\.js\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.mjs\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.cjs\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.ts\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
 
 ;; Themes, fonts etc ...
 
-(load-theme 'solarized-light t)
-(load-theme 'solarized-dark t)
-(run-at-time "20:00" (* 60 60 24) (lambda () (enable-theme 'solarized-dark)))
-(run-at-time "08:00" (* 60 60 24) (lambda () (enable-theme 'solarized-light)))
+;;(load-theme 'solarized-light t)
+;;(load-theme 'solarized-dark t)
+;;(run-at-time "20:00" (* 60 60 24) (lambda () (enable-theme 'solarized-dark)))
+;;(run-at-time "08:00" (* 60 60 24) (lambda () (enable-theme 'solarized-light)))
+(load-theme 'deeper-blue t)
 
 ;; Set default font
 (set-face-attribute 'default nil
                     :family "Source Code Pro"
-                    :height 165
+                    :height 150
                     :weight 'normal
                     :width 'normal)
 
@@ -209,6 +222,12 @@
 
 (setq magit-save-repository-buffers nil)
 
+(define-derived-mode cairo-mode prog-mode "cairo"
+        "Major mode for editing cairo files."
+)
+
+(add-to-list 'auto-mode-alist '("\\.cairo$" . cairo-mode))
+
 ;; LSP
 
 (setq gc-cons-threshold 100000000)
@@ -217,11 +236,54 @@
       company-idle-delay 0.0) ;; default is 0.2
 ;;(setq lsp-diagnostics-provider :none)
 (add-hook 'web-mode-hook #'lsp)
+;;(add-hook 'fundamental-mode-hook #'lsp)
 (with-eval-after-load 'lsp-mode
-  (require 'dap-chrome)
   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
-  (yas-global-mode))
-;;(lsp-treemacs-sync-mode 1)
+  (yas-global-mode)
+  (add-to-list 'lsp-language-id-configuration '(cairo-mode . "cairo"))
+  )
+(lsp-treemacs-sync-mode 1)
+(setq lsp-rust-server 'rust-analyzer)
+
+(lsp-register-client
+ (make-lsp-client :new-connection (lsp-stdio-connection "node /Users/oscarroche/node_modules/cairo-ls/out/server.js --stdio")
+                  :activation-fn (lsp-activate-on "cairo")
+                  :server-id 'cairo-ls))
+
+(setq lsp-tailwindcss-add-on-mode t)
+
+(setq lsp-enable-snippet nil)
+
+;; Flycheck error display
+
+(add-to-list 'display-buffer-alist
+             `(,(rx bos "*Flycheck errors*" eos)
+              (display-buffer-reuse-window
+               display-buffer-in-side-window)
+              (side            . bottom)
+              (reusable-frames . visible)
+              (window-height   . 0.33)))
+
+;; Rust
+
+(setq rustic-format-trigger 'on-save)
+(setq rustic-rustfmt-args "+nightly")
+
+;; SQL
+
+(setq sqlformat-command 'pgformatter)
+(setq sqlformat-args '("-s2" "-g"))
+
+;; Eglot + C++
+
+(require 'eglot)
+(add-to-list 'eglot-server-programs '((c++-mode c-mode) "clangd"))
+(add-hook 'c-mode-hook 'eglot-ensure)
+(add-hook 'c++-mode-hook 'eglot-ensure)
+
+;; Web mode
+
+(setq web-mode-enable-auto-quoting nil)
 
 ;; Open gtd on launch
 
