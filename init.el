@@ -4,6 +4,10 @@
    ns-control-modifier 'super
    ns-function-modifier 'hyper)
 
+;; Fix for .svg files in Mac OSX Ventuar
+
+(add-to-list 'image-types 'svg)
+
 ;; -*- mode: elisp -*-
 
 ;; Disable the splash screen (to enable it agin, replace the t with 0)
@@ -54,7 +58,7 @@
  ;; If there is more than one, they won't work right.
  '(lsp-treemacs-error-list-current-project-only t)
  '(package-selected-packages
-   '(graphql-mode eglot sqlformat lsp-tailwindcss rustic lsp-ui treemacs-tab-bar which-key dap-mode helm-xref prettier-js solarized-theme xref-js2 js2-refactor js2-mode company-solidity solidity-mode docker-compose-mode dockerfile-mode terraform-mode web-mode web company tide typescript-mode magit json-mode nix-mode haskell-mode shell-pop geiser exec-path-from-shell lsp-mode))
+   '(emojify add-node-modules-path go-mode graphql-mode eglot sqlformat lsp-tailwindcss rustic lsp-ui treemacs-tab-bar which-key dap-mode helm-xref prettier-js solarized-theme xref-js2 js2-refactor js2-mode company-solidity solidity-mode docker-compose-mode dockerfile-mode terraform-mode web-mode web company tide typescript-mode magit json-mode nix-mode haskell-mode shell-pop geiser exec-path-from-shell lsp-mode))
  '(treemacs-no-delete-other-windows nil)
  '(warning-suppress-types
    '(((defvaralias losing-value rustic-indent-offset))
@@ -69,6 +73,9 @@
 (when (cl-find-if-not #'package-installed-p package-selected-packages)
   (package-refresh-contents)
   (mapc #'package-install package-selected-packages))
+
+(when (memq window-system '(mac ns x))
+  (exec-path-from-shell-initialize))
 
 ;; Special character shortcuts
 
@@ -159,8 +166,8 @@
 
 ;; Set default font
 (set-face-attribute 'default nil
-                    :family "Source Code Pro"
-                    :height 150
+                    :family "Fira Code"
+                    :height 130
                     :weight 'normal
                     :width 'normal)
 
@@ -190,21 +197,18 @@
 (require 'solidity-mode)
 (require 'company-solidity)
 
-;;(add-hook 'web-mode-hook 'prettier-js-mode)
-
 (defun enable-minor-mode (my-pair)
   "Enable minor mode if filename match the regexp.  MY-PAIR is a cons cell (regexp . minor-mode)."
   (if (buffer-file-name)
       (if (string-match (car my-pair) buffer-file-name)
 	  (funcall (cdr my-pair)))))
 
-(add-hook 'web-mode-hook #'(lambda ()
-                            (enable-minor-mode
-                             '("\\.jsx?\\'" . prettier-js-mode))))
+(setq add-node-modules-path-command "pnpm bin")
 
-(add-hook 'web-mode-hook #'(lambda ()
-                            (enable-minor-mode
-                             '("\\.tsx?\\'" . prettier-js-mode))))
+(eval-after-load 'web-mode
+    '(progn
+       (add-hook 'web-mode-hook #'add-node-modules-path)
+       (add-hook 'web-mode-hook #'prettier-js-mode)))
 
 ;; Remove directories from grep
 
@@ -215,18 +219,13 @@
      (add-to-list 'grep-find-ignored-directories ".bundle")
      (add-to-list 'grep-find-ignored-directories "auto")
      (add-to-list 'grep-find-ignored-directories "elpa")
-     (add-to-list 'grep-find-ignored-files "*.tsbuildinfo"))
+     (add-to-list 'grep-find-ignored-files "*.tsbuildinfo")
+     (add-to-list 'grep-find-ignored-files "dist"))
   )
 
 ;; Magit
 
 (setq magit-save-repository-buffers nil)
-
-(define-derived-mode cairo-mode prog-mode "cairo"
-        "Major mode for editing cairo files."
-)
-
-(add-to-list 'auto-mode-alist '("\\.cairo$" . cairo-mode))
 
 ;; LSP
 
@@ -234,9 +233,12 @@
 (setq read-process-output-max (* 1024 1024)) ;; 1mb
 (setq company-minimum-prefix-length 1
       company-idle-delay 0.0) ;; default is 0.2
-;;(setq lsp-diagnostics-provider :none)
-(add-hook 'web-mode-hook #'lsp)
-;;(add-hook 'fundamental-mode-hook #'lsp)
+
+(setq lsp-idle-delay 0.500) ;; Adjust debounce time
+(setq lsp-log-io nil) ;; Disable extensive logging
+(setq lsp-enable-symbol-highlighting nil) ;; Disable symbol highlighting
+
+(add-hook 'prog-mode-hook #'lsp)
 (with-eval-after-load 'lsp-mode
   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
   (yas-global-mode)
@@ -250,7 +252,7 @@
                   :activation-fn (lsp-activate-on "cairo")
                   :server-id 'cairo-ls))
 
-(setq lsp-tailwindcss-add-on-mode t)
+;;(setq lsp-tailwindcss-add-on-mode t)
 
 (setq lsp-enable-snippet nil)
 
@@ -285,6 +287,31 @@
 
 (setq web-mode-enable-auto-quoting nil)
 
+;; LSP Fix
+
+(setq lsp-diagnostics-attributes ())
+
+;; LSP + Go
+
+(add-hook 'go-mode-hook #'lsp-deferred)
+
+(defun lsp-go-install-save-hooks ()
+  (add-hook 'before-save-hook #'lsp-format-buffer t t)
+  (add-hook 'before-save-hook #'lsp-organize-imports t t))
+(add-hook 'go-mode-hook #'lsp-go-install-save-hooks)
+
+;; LSP + Cairo
+
+(add-to-list 'lsp-language-id-configuration '(".*\\.cairo$" . "cairo"))
+
+(lsp-register-client
+ (make-lsp-client :new-connection (lsp-stdio-connection "scarb-cairo-language-server")
+                  :activation-fn (lsp-activate-on "cairo")
+                  :server-id 'scarb-cairo-language-server))
+
+(add-hook 'cairo-mode-hook #'lsp)
+
 ;; Open gtd on launch
 
 (find-file "~/Dropbox/org/gtd.org")
+(put 'downcase-region 'disabled nil)
