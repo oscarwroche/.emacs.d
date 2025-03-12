@@ -4,7 +4,7 @@
    ns-control-modifier 'super
    ns-function-modifier 'hyper)
 
-;; Fix for .svg files in Mac OSX Ventuar
+;; Fix for .svg files in Mac OSX Ventura
 
 (add-to-list 'image-types 'svg)
 
@@ -226,6 +226,7 @@
 ;; Magit
 
 (setq magit-save-repository-buffers nil)
+(setq magit-list-refs-sortby "-creatordate")
 
 ;; LSP
 
@@ -252,6 +253,11 @@
                   :activation-fn (lsp-activate-on "cairo")
                   :server-id 'cairo-ls))
 
+(setq lsp-apply-edits-after-file-operations nil)
+
+(with-eval-after-load 'lsp-mode
+  (add-to-list 'lsp-disabled-clients 'graphql-lsp))
+
 ;;(setq lsp-tailwindcss-add-on-mode t)
 
 (setq lsp-enable-snippet nil)
@@ -269,7 +275,7 @@
 ;; Rust
 
 (setq rustic-format-trigger 'on-save)
-(setq rustic-rustfmt-args "+nightly")
+;; (setq rustic-rustfmt-args "+nightly")
 
 ;; SQL
 
@@ -310,6 +316,10 @@
                   :server-id 'scarb-cairo-language-server))
 
 (add-hook 'cairo-mode-hook #'lsp)
+
+;; Backup files
+
+(setq make-backup-files nil)
 
 ;; Open gtd on launch
 
